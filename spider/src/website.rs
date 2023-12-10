@@ -438,6 +438,11 @@ impl Website {
         self.pages.as_ref()
     }
 
+    /// Allow user to manually add a link to visited links eg. from a persistant database
+    pub fn set_link_visited(&mut self, link: CaseInsensitiveString) -> bool {
+        self.links_visited.insert(link)
+    }
+
     /// drain the links visited.
     pub fn drain_links(&mut self) -> hashbrown::hash_set::Drain<'_, CaseInsensitiveString> {
         self.links_visited.drain()
@@ -814,7 +819,7 @@ impl Website {
         base: &(CompactString, smallvec::SmallVec<[CompactString; 2]>),
         _: bool,
     ) -> HashSet<CaseInsensitiveString> {
-        let links: HashSet<CaseInsensitiveString> = if self
+        let mut links: HashSet<CaseInsensitiveString> = if self
             .is_allowed_default(&self.get_base_link(), &self.configuration.get_blacklist())
         {
             let page = Page::new_page(&self.domain.inner(), &client).await;
@@ -837,7 +842,7 @@ impl Website {
                     .into();
             }
 
-            let links = if !page.is_empty() {
+            let mut links = if !page.is_empty() {
                 self.links_visited.insert(match self.on_link_find_callback {
                     Some(cb) => {
                         let c = cb(*self.domain.clone(), None);
@@ -847,7 +852,12 @@ impl Website {
                     _ => *self.domain.clone(),
                 });
 
-                let links = HashSet::from(page.links(&base).await);
+                let mut links = HashSet::from(page.links(&base).await);
+
+                // add initial queue links to crawl
+                for link in self.configuration.initial_queue.iter() {
+                    links.insert(link.to_owned());
+                }
 
                 links
             } else {
@@ -864,10 +874,20 @@ impl Website {
                 _ => (),
             };
 
+            // add initial queue links to crawl
+            for link in self.configuration.initial_queue.iter() {
+                links.insert(link.to_owned());
+            }
+
             links
         } else {
-            HashSet::new()
+            self.configuration.initial_queue.clone()
         };
+
+        // add initial queue links to crawl
+        for link in self.configuration.initial_queue.iter() {
+            links.insert(link.to_owned());
+        }
 
         links
     }

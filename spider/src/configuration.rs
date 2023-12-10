@@ -1,4 +1,6 @@
+use case_insensitive_string::CaseInsensitiveString;
 use compact_str::CompactString;
+use hashbrown::HashSet;
 use std::time::Duration;
 
 /// Structure to configure `Website` crawler
@@ -35,6 +37,8 @@ pub struct Configuration {
     #[cfg(feature = "sitemap")]
     /// Include a sitemap in response of the crawl
     pub sitemap_url: Option<Box<CompactString>>,
+    /// Initial queue of urls to crawl
+    pub initial_queue: HashSet<CaseInsensitiveString>,
 }
 
 /// Get the user agent from the top agent list randomly.
@@ -179,6 +183,15 @@ impl Configuration {
             Some(m) => self.headers = Some(m.into()),
             _ => self.headers = None,
         };
+        self
+    }
+
+    /// Initial queue of urls to crawl
+    pub fn with_initial_queue(
+        &mut self,
+        initial_queue: HashSet<CaseInsensitiveString>,
+    ) -> &mut Self {
+        self.initial_queue = initial_queue;
         self
     }
 }
